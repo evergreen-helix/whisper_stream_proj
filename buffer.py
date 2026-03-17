@@ -51,6 +51,14 @@ class AudioBuffer:
             silence_list.append([start, end])
 
         return silence_list
+
+    def _get_overlaps(self, zone_1, zone_list_2):
+        zones_out = []
+        for zone_2 in zone_list_2:
+            if zone_2[0] <= zone_1[1] and zone_1[0] <= zone_2[1]:
+                zones_out.append([max(zone_1[0], zone_2[0]), min(zone_1[1], zone_2[1])])
+        
+        return zones_out
     
     def _find_cut_points(self, analysis_audio):
         
