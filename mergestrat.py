@@ -21,6 +21,7 @@ class MergeStrategySelector:
         context_text = " ".join(existing_text.split()[-self.context_words:])
         
         match_info = self._analyse_overlap(context_text, new_text_clean, max_match_len = 10)
+        print(f"Executing Merge, with info {match_info['type']}")
         
         if match_info['type'] == "exact":
             merged_output = self.simple_strategy.merge(existing_text, new_text_clean, match_info)

@@ -1,6 +1,6 @@
 import ollama
 from pydantic import BaseModel
-
+import time
 
 class merged_response(BaseModel):
   merged_output: str 
@@ -13,7 +13,8 @@ class LLMMergeStrategy:
 
         
     def merge(self, existing_text, new_text, match_info):
-
+        start_time = time.time()
+        print(f"Starting LLM Merge at System Time {start_time}")
         if not existing_text:
             return new_text
         
@@ -42,5 +43,6 @@ class LLMMergeStrategy:
             ])
     
         output_text = existing_text[:-len(context_fragment)] + " " + merged_response.model_validate_json(response.message.content).merged_output
-    
+        
+        print(f"Ending LLM Merge that started at System Time {start_time}")
         return output_text

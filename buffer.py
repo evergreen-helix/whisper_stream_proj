@@ -6,9 +6,9 @@ class AudioBuffer:
         self.sample_rate = sample_rate
         self.audio_data_buffer = np.array([], dtype = np.float32)
         self.window_size_samp = self.window_size * self.sample_rate
-        self.overlap_cut_window_samp = [point * self.sample_rate for point in self.overlap_cut_window]
-        self.end_cut_window_samp = [point * self.sample_rate for point in self.end_cut_window]
-        self.cut_windows_samp = [self.overlap_cut_window_samp, self.end_cut_window_samp]]
+        self.overlap_cut_window_samp = [point * self.sample_rate for point in overlap_cut_window]
+        self.end_cut_window_samp = [point * self.sample_rate for point in end_cut_window]
+        self.cut_windows_samp = [self.overlap_cut_window_samp, self.end_cut_window_samp]
         self.model_vad = model_vad
         self.utils = utils
         
@@ -83,12 +83,12 @@ class AudioBuffer:
                 if point <= overlap[1] and overlap[0] <= point:
                     return point
         
-        overlap_borders = [val for pair in overlaps_C_1 for val in pair]
+        overlap_borders = [val for pair in cut_overlaps for val in pair]
         best_score = len(analysis_audio)
 
         #closest best cut to being in an overlap
         for border in overlap_borders:
-            for point in best_cuts:
+            for point in best_cut_points:
                 if abs(border - point) < best_score:
                     best_point = point
         return best_point
