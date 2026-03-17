@@ -1,13 +1,14 @@
 import numpy as np
 
 class AudioBuffer:
-    def __init__(self, window_size = 5, overlap_size = 2, sample_rate = 16000,  model_vad = None, utils = None):
+    def __init__(self, window_size = 7, overlap_cut_window = [3,4], end_cut_window = [6,7], sample_rate = 16000,  model_vad = None, utils = None):
         self.window_size = window_size
-        self.overlap_size = overlap_size
         self.sample_rate = sample_rate
         self.audio_data_buffer = np.array([], dtype = np.float32)
         self.window_size_samp = self.window_size * self.sample_rate
-        self.overlap_size_samp = self.overlap_size * self.sample_rate
+        self.overlap_cut_window_samp = [point * self.sample_rate for point in self.overlap_cut_window]
+        self.end_cut_window_samp = [point * self.sample_rate for point in self.end_cut_window]
+        self.cut_windows_samp = [self.overlap_cut_window_samp, self.end_cut_window_samp]]
         self.model_vad = model_vad
         self.utils = utils
         
@@ -17,47 +18,91 @@ class AudioBuffer:
     def get_buffer_size(self):
         return len(self.audio_data_buffer)
 
-    def get_silence_timestamps(self, analysis_audio):
+    def get_speech_samplestamps(self, analysis_audio):
         
-        (get_speech_timestamps, _, _, _, _) = utils
+        (get_speech_timestamps, _, _, _, _) = self.utils
         
-        speech_timestamps = get_speech_timestamps(
+        speech_samplestamps = get_speech_timestamps(
                   audio = analysis_audio,
                   model = self.model_vad,
-                  return_seconds= False,  # Return speech timestamps in seconds (default is samples)
-                  min_speech_duration_ms=5, 
+                  return_seconds= False,
+                  min_speech_duration_ms = 5, 
                   min_silence_duration_ms = 5
             )
 
-        return speech_timestamps
+        return [[seg['start'], seg['end']] for seg in speech_samplestamps]
 
-    def _find_cut_points(self, analysis_audio):
+    def get_silence_samplestamps(self, analysis_audio):
 
-        silence_data = self.get_silence_timestamps(analysis_audio)
+        speech_samplestamps = self.get_speech_samplestamps(analysis_audio)
 
-        def calc_sil_len(x):
-            x['len'] = x['end'] - x['start']
-            return x
+        audio_length = len(analysis_audio)
 
-        silence_data = [calc_sil_len(x) for x in silence_data]
-
-        def diff_to_cut(x):
-            cut_1_target = self.window_size_samp - self.overlap_size_samp
-            cut_2_target = self.window_size_samp
-
-            x['c1_diff'] = abs(cut_1_target - x['start'])
-            x['c2_diff'] = abs(cut_2_target - x['end'])
-            return x
-
-        silence_data = [diff_to_cut(x) for x in silence_data]
-        print(silence_data)
+        start = 0
+        end = audio_length
+        silence_list = []
         
-        return silence_data
+        for seg in speech_samplestamps:
+            if start == seg[0]:
+                start = seg[1] + 1
+                continue
+            silence_list.append([start,seg[0] -  1])
+            start = seg[1] + 1
+        if start < end:
+            silence_list.append([start, end])
+
+        return silence_list
+
+    def _get_overlaps(self, zone_1, zone_list_2):
+        zones_out = []
+        for zone_2 in zone_list_2:
+            if zone_2[0] <= zone_1[1] and zone_1[0] <= zone_2[1]:
+                zones_out.append([max(zone_1[0], zone_2[0]), min(zone_1[1], zone_2[1])])
+        
+        return zones_out
+
+    def _get_best_cuts(self, zone_list):
+        return [entry[1] for entry in sorted([[zone[1] - zone[0], (zone[1]+zone[0]) // 2] for zone in zone_list], key = lambda x : x[0], reverse = True)]
+        
+    
+    def _find_cut_points(self, analysis_audio, cut_window):
+        
+        silence_list = self.get_silence_samplestamps(analysis_audio)
+
+        cut_overlaps = self._get_overlaps(cut_window, silence_list)
+
+        #if no silences in cut window, cut in middle of window
+        if not cut_overlaps:
+            return (cut_window[0] + cut_window[1]) // 2
+            
+        best_cut_points = self._get_best_cuts(silence_list)
+
+        #best cut point in overlap        
+        for point in best_cut_points:
+            for overlap in cut_overlaps:
+                if point <= overlap[1] and overlap[0] <= point:
+                    return point
+        
+        overlap_borders = [val for pair in overlaps_C_1 for val in pair]
+        best_score = len(analysis_audio)
+
+        #closest best cut to being in an overlap
+        for border in overlap_borders:
+            for point in best_cuts:
+                if abs(border - point) < best_score:
+                    best_point = point
+        return best_point
+        
             
     def get_window(self):
         # return concatenated window if ready, else None
         if len(self.audio_data_buffer) >= self.window_size_samp:
-            window = self.audio_data_buffer[:self.window_size_samp]
-            self.audio_data_buffer = self.audio_data_buffer[(self.window_size_samp - self.overlap_size_samp):]
+            potential_window = self.audio_data_buffer[:self.window_size_samp]
+            overlap_cut = self._find_cut_points(potential_window, self.overlap_cut_window_samp)
+            end_cut = self._find_cut_points(potential_window, self.end_cut_window_samp)
+            
+            window = self.audio_data_buffer[:end_cut]
+            self.audio_data_buffer = self.audio_data_buffer[overlap_cut:]
+            
             return window
         return None
