@@ -1,13 +1,14 @@
 import numpy as np
 
 class AudioBuffer:
-    def __init__(self, window_size = 5, overlap_size = 2, sample_rate = 16000,  model_vad = None, utils = None):
+    def __init__(self, window_size = 7, overlap_cut_window = [3,4], end_cut_window = [6,7], sample_rate = 16000,  model_vad = None, utils = None):
         self.window_size = window_size
-        self.overlap_size = overlap_size
         self.sample_rate = sample_rate
         self.audio_data_buffer = np.array([], dtype = np.float32)
         self.window_size_samp = self.window_size * self.sample_rate
-        self.overlap_size_samp = self.overlap_size * self.sample_rate
+        self.overlap_cut_window_samp = [point * self.sample_rate for point in self.overlap_cut_window]
+        self.end_cut_window_samp = [point * self.sample_rate for point in self.end_cut_window]
+        self.cut_windows_samp = [self.overlap_cut_window_samp, self.end_cut_window_samp]]
         self.model_vad = model_vad
         self.utils = utils
         
@@ -96,7 +97,12 @@ class AudioBuffer:
     def get_window(self):
         # return concatenated window if ready, else None
         if len(self.audio_data_buffer) >= self.window_size_samp:
-            window = self.audio_data_buffer[:self.window_size_samp]
-            self.audio_data_buffer = self.audio_data_buffer[(self.window_size_samp - self.overlap_size_samp):]
+            potential_window = self.audio_data_buffer[:self.window_size_samp]
+            overlap_cut = self._find_cut_points(potential_window, self.overlap_cut_window_samp)
+            end_cut = self._find_cut_points(potential_window, self.end_cut_window_samp)
+            
+            window = self.audio_data_buffer[:end_cut]
+            self.audio_data_buffer = self.audio_data_buffer[overlap_cut:]
+            
             return window
         return None
