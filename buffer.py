@@ -17,11 +17,11 @@ class AudioBuffer:
     def get_buffer_size(self):
         return len(self.audio_data_buffer)
 
-    def get_speech_timestamps(self, analysis_audio):
+    def get_speech_samplestamps(self, analysis_audio):
         
-        (get_speech_timestamps, _, _, _, _) = utils
+        (get_speech_timestamps, _, _, _, _) = self.utils
         
-        speech_timestamps = get_speech_timestamps(
+        speech_samplestamps = get_speech_timestamps(
                   audio = analysis_audio,
                   model = self.model_vad,
                   return_seconds= False,
@@ -29,11 +29,32 @@ class AudioBuffer:
                   min_silence_duration_ms = 5
             )
 
-        return speech_timestamps
+        return [[seg['start'], seg['end']] for seg in speech_samplestamps]
 
+    def get_silence_samplestamps(self, analysis_audio):
+
+        speech_samplestamps = self.get_speech_samplestamps(analysis_audio)
+
+        audio_length = len(analysis_audio)
+
+        start = 0
+        end = audio_length
+        silence_list = []
+        
+        for seg in speech_samplestamps:
+            if start == seg[0]:
+                start = seg[1] + 1
+                continue
+            silence_list.append([start,seg[0] -  1])
+            start = seg[1] + 1
+        if start < end:
+            silence_list.append([start, end])
+
+        return silence_list
+    
     def _find_cut_points(self, analysis_audio):
         
-        speech_data = self.get_speech_timestamps(analysis_audio)
+        speech_data = self.get_speech_samplestamps(analysis_audio)
         
         def calc_sil_len(x):
             x['len'] = x['end'] - x['start']
