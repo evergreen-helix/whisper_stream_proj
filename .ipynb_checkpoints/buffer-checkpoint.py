@@ -60,32 +60,38 @@ class AudioBuffer:
         
         return zones_out
 
-    def _get_best_cuts(zone_list):
+    def _get_best_cuts(self, zone_list):
         return [entry[1] for entry in sorted([[zone[1] - zone[0], (zone[1]+zone[0]) // 2] for zone in zone_list], key = lambda x : x[0], reverse = True)]
         
     
-    def _find_cut_points(self, analysis_audio):
+    def _find_cut_points(self, analysis_audio, cut_window):
         
-        speech_data = self.get_speech_samplestamps(analysis_audio)
+        silence_list = self.get_silence_samplestamps(analysis_audio)
+
+        cut_overlaps = self._get_overlaps(cut_window, silence_list)
+
+        #if no silences in cut window, cut in middle of window
+        if not cut_overlaps:
+            return (cut_window[0] + cut_window[1]) // 2
+            
+        best_cut_points = self._get_best_cuts(silence_list)
+
+        #best cut point in overlap        
+        for point in best_cut_points:
+            for overlap in cut_overlaps:
+                if point <= overlap[1] and overlap[0] <= point:
+                    return point
         
-        def calc_sil_len(x):
-            x['len'] = x['end'] - x['start']
-            return x
+        overlap_borders = [val for pair in overlaps_C_1 for val in pair]
+        best_score = len(analysis_audio)
 
-        silence_data = [calc_sil_len(x) for x in silence_data]
-
-        def diff_to_cut(x):
-            cut_1_target = self.window_size_samp - self.overlap_size_samp
-            cut_2_target = self.window_size_samp
-
-            x['c1_diff'] = abs(cut_1_target - x['start'])
-            x['c2_diff'] = abs(cut_2_target - x['end'])
-            return x
-
-        silence_data = [diff_to_cut(x) for x in silence_data]
-        print(silence_data)
+        #closest best cut to being in an overlap
+        for border in overlap_borders:
+            for point in best_cuts:
+                if abs(border - point) < best_score:
+                    best_point = point
+        return best_point
         
-        return silence_data
             
     def get_window(self):
         # return concatenated window if ready, else None
