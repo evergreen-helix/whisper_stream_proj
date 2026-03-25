@@ -5,11 +5,11 @@ from simplemerge import SimpleMergeStrategy
 from llmmerge import LLMMergeStrategy
 
 class MergeStrategySelector:
-    def __init__(self, context_words = 10):
+    def __init__(self, model, context_words = 10):
         self.context_words = context_words
         self.stats = {'exact': 0, 'fuzzy': 0, 'llm': 0}
         self.simple_strategy = SimpleMergeStrategy()
-        self.llm_strategy = LLMMergeStrategy(model_name = 'llama3.2:3b', context_words = self.context_words)
+        self.llm_strategy = LLMMergeStrategy(model = model, context_words = self.context_words)
 
     def merge(self, existing_text, new_text):
         

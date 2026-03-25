@@ -1,14 +1,15 @@
 import ollama
 from pydantic import BaseModel
 import time
+#from llama_cpp import Llama
 
 class merged_response(BaseModel):
   merged_output: str 
 
 
 class LLMMergeStrategy:
-    def __init__(self, model_name, context_words = 10):
-        self.model_name = model_name
+    def __init__(self, model, context_words = 10):
+        self.model = model
         self.context_words = context_words
 
         
@@ -20,29 +21,39 @@ class LLMMergeStrategy:
         
         context_fragment = " ".join(existing_text.split()[-self.context_words:])
         
-        llm_message = '''Here are the two transcript fragments
-        1: ''' + context_fragment + '''
-        2: ''' + new_text
+        #llm_message = '''Here are the two transcript fragments
+        #1: ''' + context_fragment + '''
+        #2: ''' + new_text
 
+
+        llm_message = "[FRAGMENT 1]\n" + context_fragment + " \n\n" + "[FRAGMENT 2]\n" + new_text
 
         
-        response = ollama.chat(model=self.model_name, format = merged_response.model_json_schema(), messages=[
-                {'role': 'system', 'content': '''You merge overlapping transcript fragments. The end of transcript 1 overlaps with the start of transcript 2. Remove the duplication and return ONLY the merged text.
-                
-                Rules:
-                - Output ONLY the merged text
-                - No explanations, notes, or commentary
-                - If there is no clear overlap, return transcript 2 unchanged
-                
-                Example:
-                1: The cat sat on the mat
-                2: on the mat and then fell asleep
-                Output: The cat sat on the mat and then fell asleep'''}
-                ,
-                {'role': 'user', 'content': llm_message}
-            ])
+
+
+        response = self.model.create_chat_completion(messages=[
+                                                {
+                                                    "role": "system",
+                                                    "content": (
+                                                        "You are a transcript stitcher. You receive two overlapping transcript "
+                                                        "fragments. Output ONLY the merged text. No commentary, no explanation, "
+                                                        "no preamble. Raw merged text only."
+                                                    )
+                                                },
+                                                {
+                                                    "role": "user",
+                                                    "content": llm_message
+                                                }
+                                            ],
+                                            max_tokens=100,
+                                            temperature=0.1
+                                        )
+                              
+                              
+                              
+                              
     
-        output_text = existing_text[:-len(context_fragment)] + " " + merged_response.model_validate_json(response.message.content).merged_output
+        output_text = existing_text[:-len(context_fragment)] + " " + response["choices"][0]["message"]["content"]
         
         print(f"Ending LLM Merge that started at System Time {start_time}")
         return output_text

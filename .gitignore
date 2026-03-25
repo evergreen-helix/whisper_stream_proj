@@ -1,0 +1,14 @@
+stitcher_model/
+output/
+outputs/
+testdir/
+whisper_stitcher/
+data/
+unsloth_compiled_cache/
+stitcher_model_direct/
+__pycache__/
+old_generated_files/
+training_data/
+stitcher_gguf_direct/
+llama.cpp/
+cuda-keyring_1*
